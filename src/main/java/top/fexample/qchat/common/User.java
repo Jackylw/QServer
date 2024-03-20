@@ -13,6 +13,7 @@ public class User implements Serializable {
     private static final long serialVersionUID = 1L;
     private String userId;
     private String userPassword;
+    private String requestType;
 
     public User(String userId, String userPassword) {
         this.userId = userId;
@@ -33,5 +34,13 @@ public class User implements Serializable {
 
     public void setUserPassword(String userPassword) {
         this.userPassword = userPassword;
+    }
+
+    public String getRequestType() {
+        return requestType;
+    }
+
+    public void setRequestType(String requestStatus) {
+        this.requestType = requestStatus;
     }
 }

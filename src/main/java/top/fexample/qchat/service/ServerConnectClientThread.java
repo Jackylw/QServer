@@ -33,10 +33,8 @@ public class ServerConnectClientThread extends Thread {
                 Message message = (Message) ois.readObject();
 
                 if (message.getMsgType().equals(MessageType.CLIENT_EXIT)) {
-
-                    System.out.println(message.getSender() + "用户下线,通知在线用户更新自己的好友列表");
-
                     socket.close();
+
                     // 从线程池中移除该用户,并关闭连接
                     ManageClientThread.removeClient(message.getSender());
 

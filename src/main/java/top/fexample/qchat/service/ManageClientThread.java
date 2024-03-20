@@ -20,11 +20,13 @@ public class ManageClientThread {
     public static void addClient(String userId, ServerConnectClientThread clientThread) {
         clientMap.put(userId, clientThread);
         ManageClientThread.updateFriendList();
+        System.out.println(userId + ":用户上线,通知在线用户更新自己的好友列表");
     }
 
     public static void removeClient(String userId) {
         clientMap.remove(userId);
         ManageClientThread.updateFriendList();
+        System.out.println(userId + ":用户下线,通知在线用户更新自己的好友列表");
     }
 
     public static ServerConnectClientThread getClient(String userId) {
@@ -62,7 +64,6 @@ public class ManageClientThread {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-
         }
     }
 }
