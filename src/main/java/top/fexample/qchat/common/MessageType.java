@@ -5,6 +5,7 @@
 package top.fexample.qchat.common;
 
 public interface MessageType {
+    String CONNECT_SERVER_TIMEOUT = "CONNECT_SERVER_TIMEOUT";
     String LOGIN_SUCCESS = "LOGIN_SUCCESS";
     String LOGIN_FAIL = "LOGIN_FAIL";
     String COMMON_MESSAGE = "COMMON_MESSAGE";

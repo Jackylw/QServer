@@ -5,18 +5,26 @@
  */
 package top.fexample.qchat.service;
 
-import java.util.HashMap;
+import top.fexample.qchat.common.Message;
+import top.fexample.qchat.common.MessageType;
+
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
 import java.util.Iterator;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ManageClientThread {
-    private static HashMap<String, ServerConnectClientThread> clientMap = new HashMap<>();
+    public static ConcurrentHashMap<String, ServerConnectClientThread> clientMap = new ConcurrentHashMap<>();
 
     public static void addClient(String userId, ServerConnectClientThread clientThread) {
         clientMap.put(userId, clientThread);
+        ManageClientThread.updateFriendList();
     }
 
     public static void removeClient(String userId) {
         clientMap.remove(userId);
+        ManageClientThread.updateFriendList();
     }
 
     public static ServerConnectClientThread getClient(String userId) {
@@ -32,5 +40,29 @@ public class ManageClientThread {
             onlineUserList.append(it.next()).append(" ");
         }
         return String.valueOf(onlineUserList);
+    }
+
+    public static void updateFriendList() {
+        // 获取在线用户列表,String用于发送在线用户列表
+        String onlineUserListString = ManageClientThread.getOnlineUserList();
+
+        for (String userId : clientMap.keySet()) {
+            Message messageOnline = new Message();
+            messageOnline.setMsgType(MessageType.RECEIVE_ONLINE_FRIEND);
+            messageOnline.setContent(onlineUserListString);
+
+            // 获取用户socket
+            ServerConnectClientThread clientThread = ManageClientThread.getClient(userId);
+            Socket onlineSocket = clientThread.getSocket();
+
+            ObjectOutputStream oos;
+            try {
+                oos = new ObjectOutputStream(onlineSocket.getOutputStream());
+                oos.writeObject(messageOnline);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+
+        }
     }
 }
