@@ -27,15 +27,6 @@ public class Server {
     private static final String USER = "root";
     private static final String PASSWORD = "root";
 
-    // 使用一个集合模拟数据库
-    private static HashMap<String, User> users = new HashMap<>();
-
-    static {
-        users.put("123", new User("123", "123"));
-        users.put("456", new User("456", "456"));
-        users.put("789", new User("789", "789"));
-    }
-
     public Server() {
         System.out.println("Server start");
         try {
@@ -45,16 +36,17 @@ public class Server {
             while (true) {
                 Socket socket = serverSocket.accept();
 
+                // 读取客户端传来的User对象
                 ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
                 User user = (User) ois.readObject();
+
+                // 发送消息给客户端
+                ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+                Message message = new Message();
 
                 // 根据客户端选择的请求类型处理:LOGIN/REGISTER/FIND_PASSWORD
                 switch (user.getRequestType()) {
                     case UserType.LOGIN:
-                        // 发
-                        ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
-                        Message message = new Message();
-
                         // todo 验证用户,应使用数据库,这里先简单模拟
                         if (checkUser(user.getUserId(), user.getUserPassword())) {
                             message.setMsgType(MessageType.LOGIN_SUCCESS);
@@ -77,6 +69,12 @@ public class Server {
                         break;
                     case UserType.REGISTER:
                         // todo 注册用户
+                        String result = register(user.getUserId(), user.getUserPassword(), user.getSecurityQuestion(), user.getSecurityAnswer());
+                        message.setMsgType(result);
+                        oos.writeObject(message);
+
+                        System.out.println("用户" + user.getUserId() + "密码" + user.getUserPassword() + "注册:" + result);
+
                         break;
                     case UserType.FIND_PASSWORD:
                         // todo 找回密码
@@ -99,21 +97,29 @@ public class Server {
 
     // 验证用户
     private boolean checkUser(String userId, String userPassword) {
-        return users.containsKey(userId) && users.get(userId).getUserPassword().equals(userPassword);
+        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASSWORD)) {
+            PreparedStatement pstmt = conn.prepareStatement("SELECT * FROM user WHERE user_id = ? AND user_password = ?");
+            pstmt.setString(1, userId);
+            pstmt.setString(2, encryptPassword(userPassword));
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 
     // 注册用户
     public String register(String userId, String password, String securityQuestion, String securityAnswer) {
         try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASSWORD)) {
-            // 开始数据库事务
+            // 开始数据库事务,关闭自动提交
             conn.setAutoCommit(false);
 
             PreparedStatement checkStmt = conn.prepareStatement("SELECT * FROM user WHERE user_id = ? FOR UPDATE");
             checkStmt.setString(1, userId);
             ResultSet rs = checkStmt.executeQuery();
             if (rs.next()) {
-                // 用户ID已存在，回滚事务并返回错误信息
+                // 用户ID已存在，回滚事务并返回信息
                 conn.rollback();
                 return MessageType.REGISTER_EXIST;
             }
