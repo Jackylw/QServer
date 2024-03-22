@@ -1,7 +1,7 @@
 /**
  * @author Jacky Feng
  * @date 2024/3/18 15:10
- * @description 用于管理客户端的线程
+ * @description 用于管理客户端的线程,以及线程变化时的操作
  */
 package top.fexample.qchat.service;
 

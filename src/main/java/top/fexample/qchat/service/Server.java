@@ -23,9 +23,6 @@ import java.util.HashMap;
 
 public class Server {
     private ServerSocket serverSocket = null;
-    private static final String DB_URL = "jdbc:mysql://localhost:3306/qchat";
-    private static final String USER = "root";
-    private static final String PASSWORD = "root";
 
     public Server() {
         System.out.println("Server start");
@@ -97,7 +94,7 @@ public class Server {
 
     // 验证用户
     private boolean checkUser(String userId, String userPassword) {
-        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASSWORD)) {
+        try (Connection conn = DatabaseService.getConnection()) {
             PreparedStatement pstmt = conn.prepareStatement("SELECT * FROM user WHERE user_id = ? AND user_password = ?");
             pstmt.setString(1, userId);
             pstmt.setString(2, encryptPassword(userPassword));
@@ -111,7 +108,7 @@ public class Server {
 
     // 注册用户
     public String register(String userId, String password, String securityQuestion, String securityAnswer) {
-        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASSWORD)) {
+        try (Connection conn = DatabaseService.getConnection()) {
             // 开始数据库事务,关闭自动提交
             conn.setAutoCommit(false);
 
