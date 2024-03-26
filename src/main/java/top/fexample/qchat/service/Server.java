@@ -44,7 +44,7 @@ public class Server {
                 // 根据客户端选择的请求类型处理:LOGIN/REGISTER/FIND_PASSWORD
                 switch (user.getRequestType()) {
                     case UserType.LOGIN:
-                        // todo 验证用户,应使用数据库,这里先简单模拟
+                        // 验证用户
                         if (checkUser(user.getUserId(), user.getUserPassword())) {
                             message.setMsgType(MessageType.LOGIN_SUCCESS);
                             oos.writeObject(message);
@@ -65,7 +65,7 @@ public class Server {
                         }
                         break;
                     case UserType.REGISTER:
-                        // todo 注册用户
+                        // 注册用户
                         String result = register(user.getUserId(), user.getUserPassword(), user.getSecurityQuestion(), user.getSecurityAnswer());
                         message.setMsgType(result);
                         oos.writeObject(message);
