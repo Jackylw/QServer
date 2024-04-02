@@ -11,6 +11,10 @@ import top.fexample.qchat.common.MessageType;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -21,6 +25,8 @@ public class ManageClientThread {
         clientMap.put(userId, clientThread);
         ManageClientThread.updateFriendList();
         System.out.println(userId + ":用户上线,通知在线用户更新自己的好友列表");
+        System.out.println("检查是否有未接收消息");
+        putChatRecord(userId);
     }
 
     public static void removeClient(String userId) {
@@ -64,6 +70,37 @@ public class ManageClientThread {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
+        }
+    }
+
+    // 更新好友列表
+    public static void putChatRecord(String receiver) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            PreparedStatement pstmt = conn.prepareStatement("SELECT * FROM chat_history WHERE receiver = ?");
+            pstmt.setString(1, receiver);
+            ResultSet resultSet = pstmt.executeQuery();
+
+            while (resultSet.next()) {
+                Message message = new Message();
+                message.setMsgType(MessageType.COMMON_MESSAGE);
+                message.setSender(resultSet.getString("sender"));
+                message.setReceiver(resultSet.getString("receiver"));
+                message.setContent(resultSet.getString("content"));
+                message.setTime(String.valueOf(resultSet.getTimestamp("time")));
+
+                // 发送消息
+                ServerConnectClientThread receiverThread = ManageClientThread.getClient(message.getReceiver());
+                ObjectOutputStream oos1 = new ObjectOutputStream(receiverThread.getSocket().getOutputStream());
+                oos1.writeObject(message);
+                System.out.println("发送给" + message.getReceiver() + "的消息已发送");
+
+                // 删除已发送的消息
+                PreparedStatement deleteStmt = conn.prepareStatement("DELETE FROM chat_history WHERE receiver = ?");
+                deleteStmt.setString(1, receiver);
+                deleteStmt.executeUpdate();
+            }
+        } catch (SQLException | IOException e) {
+            throw new RuntimeException(e);
         }
     }
 }

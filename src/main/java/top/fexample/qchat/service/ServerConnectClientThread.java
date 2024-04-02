@@ -7,7 +7,6 @@ package top.fexample.qchat.service;
 
 import top.fexample.qchat.common.Message;
 import top.fexample.qchat.common.MessageType;
-
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -29,7 +28,6 @@ public class ServerConnectClientThread extends Thread {
     public void run() {
         while (true) {
             try {
-
                 System.out.println("服务器端和客户端保持通信,等待读取数据");
 
                 ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
@@ -54,6 +52,14 @@ public class ServerConnectClientThread extends Thread {
                         break;
                     case MessageType.COMMON_MESSAGE:
                         // 转发消息
+                        // 用户上线转发，未上线存入数据库
+                        if (ManageClientThread.getClient(message.getReceiver()) != null) {
+                            ServerConnectClientThread receiverThread = ManageClientThread.getClient(message.getReceiver());
+                            ObjectOutputStream oos1 = new ObjectOutputStream(receiverThread.getSocket().getOutputStream());
+                            oos1.writeObject(message);
+                        } else {
+                            saveChatRecord(message);
+                        }
                         break;
                     default:
                         break;
@@ -79,6 +85,21 @@ public class ServerConnectClientThread extends Thread {
                 friendList.append(resultSet.getString("friend_id")).append(" ");
             }
             return friendList.toString();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // 将聊天记录存入数据库
+    public void saveChatRecord(Message message) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            PreparedStatement pstmt = conn.prepareStatement("INSERT INTO chat_history (sender, receiver, content, time) VALUES (?, ?, ?, ?)");
+            pstmt.setString(1, message.getSender());
+            pstmt.setString(2, message.getReceiver());
+            pstmt.setString(3, message.getContent());
+            pstmt.setTimestamp(4, new Timestamp(System.currentTimeMillis()));
+            pstmt.executeUpdate();
+            System.out.println(message.getSender() + "发送给" + message.getReceiver() + "的消息已存入数据库");
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
