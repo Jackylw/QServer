@@ -18,4 +18,7 @@ public interface MessageType {
     String REQUEST_FRIEND = "REQUEST_FRIEND";
     String RECEIVE_FRIEND_REQUEST = "RECEIVE_FRIEND_REQUEST";
     String CLIENT_EXIT = "CLIENT_EXIT";
+    String ADD_USER = "ADD_USER";
+    String ADD_USER_SUCCESS = "ADD_USER_SUCCESS";
+    String ADD_USER_FAIL = "ADD_USER_FAIL";
 }

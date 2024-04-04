@@ -7,6 +7,7 @@ package top.fexample.qchat.service;
 
 import top.fexample.qchat.common.Message;
 import top.fexample.qchat.common.MessageType;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -61,6 +62,24 @@ public class ServerConnectClientThread extends Thread {
                             saveChatRecord(message);
                         }
                         break;
+                    case MessageType.ADD_USER:
+                        // 添加好友,Sender为请求方,Receiver为被请求方
+                        Message addFriendMessage = new Message();
+                        addFriendMessage.setSender(message.getSender());
+                        addFriendMessage.setReceiver(message.getReceiver());
+                        if (addFriend(message.getSender(), message.getReceiver())) {
+                            addFriendMessage.setMsgType(MessageType.ADD_USER_SUCCESS);
+                            ServerConnectClientThread senderThread = ManageClientThread.getClient(message.getSender());
+                            ObjectOutputStream oos2 = new ObjectOutputStream(senderThread.getSocket().getOutputStream());
+                            oos2.writeObject(addFriendMessage);
+                            System.out.println(message.getSender() + "添加好友" + message.getReceiver() + "成功");
+                        } else {
+                            addFriendMessage.setMsgType(MessageType.ADD_USER_FAIL);
+                            ServerConnectClientThread senderThread = ManageClientThread.getClient(message.getSender());
+                            ObjectOutputStream oos3 = new ObjectOutputStream(senderThread.getSocket().getOutputStream());
+                            oos3.writeObject(addFriendMessage);
+                            System.out.println(message.getSender() + "添加好友" + message.getReceiver() + "失败");
+                        }
                     default:
                         break;
                 }
@@ -100,6 +119,61 @@ public class ServerConnectClientThread extends Thread {
             pstmt.setTimestamp(4, new Timestamp(System.currentTimeMillis()));
             pstmt.executeUpdate();
             System.out.println(message.getSender() + "发送给" + message.getReceiver() + "的消息已存入数据库");
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // 添加好友方法
+    public boolean addFriend(String userId, String friendId) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            // 检查是否已经是好友
+            if (checkFriend(userId, friendId)) {
+                System.out.println(userId + "已经是好友" + friendId);
+                return false;
+            }
+            // 检查好友是否是已注册的用户
+            if (!checkFriendExist(friendId)) {
+                System.out.println("好友" + friendId + "不存在");
+                return false;
+            }
+            // 双向添加好友
+            PreparedStatement pstmt = conn.prepareStatement("INSERT INTO friends_list (user_id, friend_id) VALUES (?, ?)");
+            pstmt.setString(1, userId);
+            pstmt.setString(2, friendId);
+            pstmt.executeUpdate();
+            PreparedStatement pstmtReverse = conn.prepareStatement("INSERT INTO friends_list (user_id, friend_id) VALUES (?, ?)");
+            pstmtReverse.setString(1, friendId);
+            pstmtReverse.setString(2, userId);
+            pstmtReverse.executeUpdate();
+            System.out.println(userId + "添加了好友" + friendId);
+            return true;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // 检查是否已经是好友
+    public boolean checkFriend(String userId, String friendId) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            // 单向检查即可
+            PreparedStatement checkStmt = conn.prepareStatement("SELECT * FROM friends_list WHERE user_id = ? AND friend_id = ?");
+            checkStmt.setString(1, userId);
+            checkStmt.setString(2, friendId);
+            ResultSet resultSet = checkStmt.executeQuery();
+            return resultSet.next();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // 检查好友是否存在
+    public boolean checkFriendExist(String friendId) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            PreparedStatement checkStmt = conn.prepareStatement("SELECT * FROM user WHERE user_id = ?");
+            checkStmt.setString(1, friendId);
+            ResultSet resultSet = checkStmt.executeQuery();
+            return resultSet.next();
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
