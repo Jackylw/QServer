@@ -80,6 +80,37 @@ public class ServerConnectClientThread extends Thread {
                             oos3.writeObject(addFriendMessage);
                             System.out.println(message.getSender() + "添加好友" + message.getReceiver() + "失败");
                         }
+                        break;
+                    case MessageType.DELETE_USER:
+                        // 删除好友,Sender为请求方,Receiver为被请求方
+                        Message delFriendMessage = new Message();
+                        delFriendMessage.setSender(message.getSender());
+                        delFriendMessage.setReceiver(message.getReceiver());
+                        if (delFriend(message.getSender(), message.getReceiver())) {
+                            try (Connection conn = DatabaseService.getConnection()) {
+                                PreparedStatement pstmt = conn.prepareStatement("DELETE FROM friends_list WHERE user_id = ? AND friend_id = ?");
+                                pstmt.setString(1, message.getSender());
+                                pstmt.setString(2, message.getReceiver());
+                                pstmt.executeUpdate();
+                                PreparedStatement pstmtReverse = conn.prepareStatement("DELETE FROM friends_list WHERE user_id = ? AND friend_id = ?");
+                                pstmtReverse.setString(1, message.getReceiver());
+                                pstmtReverse.setString(2, message.getSender());
+                                pstmtReverse.executeUpdate();
+                                System.out.println(message.getSender() + "删除了好友" + message.getReceiver());
+                            } catch (SQLException e) {
+                                throw new RuntimeException(e);
+                            }
+                            delFriendMessage.setMsgType(MessageType.DELETE_USER_SUCCESS);
+                            ServerConnectClientThread senderThread = ManageClientThread.getClient(message.getSender());
+                            ObjectOutputStream oos4 = new ObjectOutputStream(senderThread.getSocket().getOutputStream());
+                            oos4.writeObject(delFriendMessage);
+                        } else {
+                            delFriendMessage.setMsgType(MessageType.DELETE_USER_FAIL);
+                            ServerConnectClientThread senderThread = ManageClientThread.getClient(message.getSender());
+                            ObjectOutputStream oos5 = new ObjectOutputStream(senderThread.getSocket().getOutputStream());
+                            oos5.writeObject(delFriendMessage);
+                        }
+                        break;
                     default:
                         break;
                 }
@@ -147,6 +178,30 @@ public class ServerConnectClientThread extends Thread {
             pstmtReverse.setString(2, userId);
             pstmtReverse.executeUpdate();
             System.out.println(userId + "添加了好友" + friendId);
+            return true;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // 删除好友方法
+    public boolean delFriend(String userId, String friendId) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            // 检查是否已经是好友
+            if (!checkFriend(userId, friendId)) {
+                System.out.println(userId + "不是好友" + friendId);
+                return false;
+            }
+            // 双向删除好友
+            PreparedStatement pstmt = conn.prepareStatement("DELETE FROM friends_list WHERE user_id = ? AND friend_id = ?");
+            pstmt.setString(1, userId);
+            pstmt.setString(2, friendId);
+            pstmt.executeUpdate();
+            PreparedStatement pstmtReverse = conn.prepareStatement("DELETE FROM friends_list WHERE user_id = ? AND friend_id = ?");
+            pstmtReverse.setString(1, friendId);
+            pstmtReverse.setString(2, userId);
+            pstmtReverse.executeUpdate();
+            System.out.println(userId + "删除了好友" + friendId);
             return true;
         } catch (SQLException e) {
             throw new RuntimeException(e);
