@@ -9,7 +9,6 @@ import top.fexample.qchat.common.Message;
 import top.fexample.qchat.common.MessageType;
 import top.fexample.qchat.common.User;
 import top.fexample.qchat.common.UserType;
-
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -19,7 +18,6 @@ import java.net.Socket;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.*;
-import java.util.HashMap;
 
 public class Server {
     private ServerSocket serverSocket = null;
@@ -73,8 +71,38 @@ public class Server {
                         System.out.println("用户" + user.getUserId() + "密码" + user.getUserPassword() + "注册:" + result);
 
                         break;
+                    case UserType.FIND:
+                        // 返回找回信息
+                        String userId = user.getUserId();
+                        if (checkUserExist(userId)) {
+                            try (Connection conn = DatabaseService.getConnection()) {
+                                PreparedStatement pstmt = conn.prepareStatement("SELECT user_question FROM user WHERE user_id = ?");
+                                pstmt.setString(1, userId);
+                                ResultSet rs = pstmt.executeQuery();
+                                if (rs.next()) {
+                                    message.setMsgType(MessageType.FIND_USER_EXIST);
+                                    message.setContent(rs.getString("user_question"));
+                                    oos.writeObject(message);
+                                }
+                            } catch (SQLException e) {
+                                throw new RuntimeException(e);
+                            }
+                        } else {
+                            message.setMsgType(MessageType.FIND_USER_NOT_EXIST);
+                            oos.writeObject(message);
+                        }
+                        break;
                     case UserType.FIND_PASSWORD:
-                        // todo 找回密码
+                        // 检查密保问题答案是否正确
+                        if (checkSecurityAnswer(user.getUserId(), user.getSecurityAnswer())) {
+                            // 更改密码
+                            modifyPassword(user.getUserId(), user.getUserPassword());
+                            message.setMsgType(MessageType.MODIFY_PASSWORD_SUCCESS);
+                            oos.writeObject(message);
+                        } else {
+                            message.setMsgType(MessageType.MODIFY_PASSWORD_FAIL);
+                            oos.writeObject(message);
+                        }
                         break;
                     default:
                         throw new IllegalArgumentException("未知的请求类型");
@@ -155,6 +183,43 @@ public class Server {
 
             return result.toString();
         } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // 检查用户是否存在
+    public boolean checkUserExist(String userId) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            PreparedStatement pstmt = conn.prepareStatement("SELECT * FROM user WHERE user_id = ?");
+            pstmt.setString(1, userId);
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // 检查密保问题答案是否正确
+    public boolean checkSecurityAnswer(String userId, String answer) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            PreparedStatement pstmt = conn.prepareStatement("SELECT * FROM user WHERE user_id = ? AND user_answer = ?");
+            pstmt.setString(1, userId);
+            pstmt.setString(2, answer);
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // 修改密码
+    public void modifyPassword(String userId, String newPassword) {
+        try (Connection conn = DatabaseService.getConnection()) {
+            PreparedStatement pstmt = conn.prepareStatement("UPDATE user SET user_password = ? WHERE user_id = ?");
+            pstmt.setString(1, encryptPassword(newPassword));
+            pstmt.setString(2, userId);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }

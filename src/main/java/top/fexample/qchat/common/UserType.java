@@ -7,5 +7,6 @@ package top.fexample.qchat.common;
 public interface UserType {
     String LOGIN = "LOGIN";
     String REGISTER = "REGISTER";
+    String FIND = "FIND";
     String FIND_PASSWORD = "FIND_PASSWORD";
 }
